@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jurnal Trading 90 Hari (4 Sesi per Hari dengan Checklist)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-2">
+                Jurnal Trading Compounding 90 Hari (4 Sesi)
+            </h1>
+            <p class="text-slate-400 text-sm md:text-base">
+                Target 3% per Sesi (Pagi, Siang, Sore, Malam) | Stop Loss: 30 Pips | Transisi ke Akun Standar di Hari ke-61
+            </p>
+        </header>
+
+        <!-- Filter & Search Bar -->
+        <div class="bg-slate-800 p-4 rounded-xl shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-center justify-between border border-slate-700">
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <label for="filterDay" class="text-sm font-medium text-slate-300">Pilih Hari (1-90):</label>
+                <input type="number" id="filterDay" min="1" max="90" placeholder="Semua Hari" 
+                    class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 w-32">
+                <button onclick="filterTable()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    Cari
+                </button>
+                <button onclick="resetFilter()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg text-sm transition">
+                    Reset
+                </button>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="clearAllCheckmarks()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition">
+                    Reset Checklist
+                </button>
+                <div class="text-sm text-slate-400">
+                    Total Sesi: <span class="font-bold text-emerald-400">360 Sesi</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+            <div class="overflow-x-auto max-h-[70vh]">
+                <table id="journalTable" class="w-full text-left border-collapse">
+                    <thead class="bg-slate-900/90 sticky top-0 z-10 text-xs md:text-sm text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                        <tr>
+                            <th class="p-3 md:p-4 text-center w-16">Check</th>
+                            <th class="p-3 md:p-4">Hari</th>
+                            <th class="p-3 md:p-4">Tipe Akun</th>
+                            <th class="p-3 md:p-4">Sesi</th>
+                            <th class="p-3 md:p-4 text-right">Saldo Awal</th>
+                            <th class="p-3 md:p-4 text-right">Target 3%</th>
+                            <th class="p-3 md:p-4 text-center">Lot Rekomendasi</th>
+                            <th class="p-3 md:p-4 text-right">Saldo Akhir</th>
+                            <th class="p-3 md:p-4 text-center">SL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-700/50 text-sm">
+                        <!-- Data will be populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate 90 days data with 4 sessions each
+        function generateData() {
+            let balance = 35000.0; // Starting with 35,000 USC
+            let allRows = [];
+
+            for (let day = 1; day <= 90; day++) {
+                let accountType = day <= 60 ? "Cent (USC)" : "USD (Standard)";
+                
+                // Convert balance at day 61
+                if (day === 61) {
+                    balance = balance / 100.0;
+                }
+
+                let sessionNames = ["Pagi (Sesi 1)", "Siang (Sesi 2)", "Sore (Sesi 3)", "Malam (Sesi 4)"];
+                
+                for (let s = 0; s < 4; s++) {
+                    let startBal = balance;
+                    let target = startBal * 0.03;
+                    let lot = target / 300.0;
+                    let lotStr = day <= 60 ? lot.toFixed(2) + " Cent" : lot.toFixed(2) + " Lot";
+                    
+                    balance += target;
+
+                    allRows.push({
+                        id: `day_${day}_s_${s+1}`,
+                        day: day,
+                        type: accountType,
+                        session: sessionNames[s],
+                        start: startBal,
+                        target: target,
+                        lot: lotStr,
+                        end: balance,
+                        sl: "30 Pips"
+                    });
+                }
+            }
+            return allRows;
+        }
+
+        const journalData = generateData();
+
+        function getCheckedState() {
+            try {
+                const saved = localStorage.getItem('trading_checks_90d');
+                return saved ? JSON.parse(saved) : {};
+            } catch(e) {
+                return {};
+            }
+        }
+
+        function saveCheckedState(state) {
+            try {
+                localStorage.setItem('trading_checks_90d', JSON.stringify(state));
+            } catch(e) {}
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            const checkedState = getCheckedState();
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                const isChecked = !!checkedState[row.id];
+                tr.className = `transition duration-150 ${isChecked ? 'bg-emerald-950/30 opacity-75 line-through-row' : 'hover:bg-slate-700/40'}`;
+                tr.id = `row_${row.id}`;
+                
+                let formattedStart = row.type.includes("Cent") ? row.start.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " USC" : "$" + row.start.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                let formattedTarget = row.type.includes("Cent") ? row.target.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " USC" : "$" + row.target.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                let formattedEnd = row.type.includes("Cent") ? row.end.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " USC" : "$" + row.end.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                tr.innerHTML = `
+                    <td class="p-3 md:p-4 text-center">
+                        <input type="checkbox" id="chk_${row.id}" ${isChecked ? 'checked' : ''} onchange="toggleCheck('${row.id}')" 
+                            class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
+                    </td>
+                    <td class="p-3 md:p-4 font-bold text-emerald-400">Hari ${row.day}</td>
+                    <td class="p-3 md:p-4">
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${row.type.includes('Cent') ? 'bg-amber-900/50 text-amber-300 border border-amber-700' : 'bg-cyan-900/50 text-cyan-300 border border-cyan-700'}">
+                            ${row.type}
+                        </span>
+                    </td>
+                    <td class="p-3 md:p-4 font-medium text-slate-300">${row.session}</td>
+                    <td class="p-3 md:p-4 text-right font-mono text-slate-200">${formattedStart}</td>
+                    <td class="p-3 md:p-4 text-right font-mono text-emerald-400">+${formattedTarget}</td>
+                    <td class="p-3 md:p-4 text-center font-mono text-cyan-300">${row.lot}</td>
+                    <td class="p-3 md:p-4 text-right font-mono font-bold text-white">${formattedEnd}</td>
+                    <td class="p-3 md:p-4 text-center text-rose-400 font-medium">${row.sl}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleCheck(id) {
+            const chk = document.getElementById(`chk_${id}`);
+            const rowTr = document.getElementById(`row_${id}`);
+            const checkedState = getCheckedState();
+
+            if (chk.checked) {
+                checkedState[id] = true;
+                rowTr.className = "transition duration-150 bg-emerald-950/30 opacity-75";
+            } else {
+                delete checkedState[id];
+                rowTr.className = "transition duration-150 hover:bg-slate-700/40";
+            }
+            saveCheckedState(checkedState);
+        }
+
+        function clearAllCheckmarks() {
+            if (confirm("Apakah Anda yakin ingin mereset semua checklist?")) {
+                localStorage.removeItem('trading_checks_90d');
+                filterTable();
+            }
+        }
+
+        function filterTable() {
+            const dayVal = document.getElementById('filterDay').value;
+            if (!dayVal) {
+                renderTable(journalData);
+                return;
+            }
+            const filtered = journalData.filter(row => row.day === parseInt(dayVal));
+            renderTable(filtered);
+        }
+
+        function resetFilter() {
+            document.getElementById('filterDay').value = '';
+            renderTable(journalData);
+        }
+
+        // Initial Render
+        window.onload = function() {
+            renderTable(journalData);
+        };
+    </script>
+</body>
+</html>
